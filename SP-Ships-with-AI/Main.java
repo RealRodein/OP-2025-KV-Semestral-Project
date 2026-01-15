@@ -1,78 +1,79 @@
 import java.util.Scanner;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class Main {
+    // hlavni trida, ktera spousti hru
     private static final Logic logic = new Logic();
     private static final Output output = new Output();
     private static final Scanner scanner = new Scanner(System.in);
     
-    // Game State
+    // nastaveni hry a bota
     private static Bot bot;
     private static int difficulty = 2;
-    private static final String[] BOT_NAMES = {"Unknown", "Simple", "Standard", "Advanced", "Expert"};
+    private static final String[] BOT_NAMES = {"Neznamy", "Lehky", "Stredni", "Tezky"};
     
-    // Stats
-    private static int totalWins = 0, totalLosses = 0, gamesPlayed = 0;
+    // statistiky
+    private static int totalWins = 0;
+    private static int totalLosses = 0;
+    private static int gamesPlayed = 0;
     private static int totalShipsSunk = 0;
 
+    // vstupni bod programu
     public static void main(String[] args) {
         boolean running = true;
         while (running) {
             clearConsole();
             output.printMenu();
-            System.out.print("\nChoose option: ");
+            System.out.print("\nZvolte moznost: ");
             String choice = scanner.nextLine().trim();
 
-            switch (choice) {
-                case "1" -> runGameLoop();
-                case "2" -> changeSettings();
-                case "3" -> showStats();
-                case "4" -> {
-                    running = false;
-                    System.out.println("Goodbye!");
-                }
-                default -> {
-                    System.out.println("Invalid option.");
-                    promptEnterKey();
-                }
+            if (choice.equals("1")) {
+                runGameLoop();
+            } else if (choice.equals("2")) {
+                changeSettings();
+            } else if (choice.equals("3")) {
+                showStats();
+            } else if (choice.equals("4")) {
+                running = false;
+                System.out.println("Na shledanou!");
+            } else {
+                System.out.println("Neplatna volba.");
+                promptEnterKey();
             }
         }
         scanner.close();
     }
     
+    // ridici smycka jedne hry
     private static void runGameLoop() {
         logic.initGame();
         bot = createBot(difficulty);
         
         long startTime = System.currentTimeMillis();
         boolean gameRunning = true;
-        String turnLog = "Game Started. Awaiting orders, Commander.";
+        String turnLog = "Hra zacala. Cekam na rozkazy.";
 
         while (gameRunning) {
             clearConsole();
-            // Pass the log to be printed along with the frame
             output.printGameFrame(logic.getBotBoard(), logic.getPlayerBoard(), turnLog);
 
-            // --- PLAYER TURN ---
-            int[] pMove = getValidPlayerInput(); // Loops until valid coordinate
+            // tah hrace
+            int[] pMove = getValidPlayerInput(); 
             int pRes = logic.processShot(logic.getBotBoard(), pMove[0], pMove[1], true);
             
-            if (pRes == 2) totalShipsSunk++; // 2 = Sunk
+            if (pRes == 2) {
+                totalShipsSunk++;
+            }
             
-            // Check Win immediately after player shot
             if (logic.checkWin(logic.getBotBoard())) {
                 endGame(true, startTime);
                 break;
             }
 
-            // --- BOT TURN ---
+            // tah bota
             int[] bMove = bot.shoot(logic.getPlayerBoard());
             int bRes = logic.processShot(logic.getPlayerBoard(), bMove[0], bMove[1], false);
             
-            // --- BUILD LOG FOR NEXT FRAME ---
-            // Since we don't sleep, we save this text to show in the next loop iteration
-            String pStr = formatMove("You", pMove, pRes);
+            String pStr = formatMove("Vy", pMove, pRes);
             String bStr = formatMove("Bot", bMove, bRes);
             turnLog = pStr + "\n" + bStr;
 
@@ -80,105 +81,135 @@ public class Main {
                 endGame(false, startTime);
                 break;
             }
-            
-            // NO SLEEP: The loop restarts instantly, clearing console and printing the new state + log.
         }
     }
 
+    // ziska od uzivatele souradnice a osetri chyby
     private static int[] getValidPlayerInput() {
         while (true) {
-            System.out.print("\nEnter target (e.g. A1): ");
+            System.out.print("\nZadejte cil (napr. A1 nebo 1A): ");
             String input = scanner.nextLine().toUpperCase().trim();
             
-            Matcher numM = Pattern.compile("(\\d+)").matcher(input);
-            Matcher colM = Pattern.compile("([A-J])").matcher(input);
+            try {
+                if (input.length() < 2) {
+                    throw new Exception();
+                }
 
-            if (numM.find() && colM.find()) {
-                int r = Integer.parseInt(numM.group(1)) - 1;
-                int c = colM.group(1).charAt(0) - 'A';
+                int r, c;
+                char first = input.charAt(0);
+                char last = input.charAt(input.length() - 1);
+
+                // Logika pro rozpoznani formatu
+                if (Character.isLetter(first)) {
+                    // Format A1 (Pismeno na zacatku)
+                    c = first - 'A';
+                    // zbytek retezce musi byt cislo
+                    r = Integer.parseInt(input.substring(1)) - 1;
+                } 
+                else if (Character.isLetter(last)) {
+                    // Format 1A (Pismeno na konci)
+                    c = last - 'A';
+                    // zacatek retezce musi byt cislo
+                    r = Integer.parseInt(input.substring(0, input.length() - 1)) - 1;
+                } 
+                else {
+                    throw new Exception();
+                }
                 
-                // Check if valid coord
                 if (!Utils.isValid(r, c)) {
-                    System.out.println("Out of bounds.");
+                    System.out.println("Mimo herni plochu.");
                     continue;
                 }
                 
-                // Check if already shot
-                int cell = logic.getBotBoard()[r][c];
-                if (cell == Utils.HIT || cell == Utils.MISS) {
-                    System.out.println("Already shot there! Check your map.");
-                    continue;
-                }
+                // ODSTRANENO: Kontrola jiz zasazeneho policka (povolena opakovana strelba)
                 
                 return new int[]{r, c};
-            } else {
-                System.out.println("Invalid format. Use Letter+Number (e.g. A5).");
+
+            } catch (NumberFormatException e) {
+                System.out.println("Spatny format cisla.");
+            } catch (Exception e) {
+                System.out.println("Neplatny vstup. Pouzijte napr. A5 nebo 5A.");
             }
         }
     }
 
+    // naformatuje textovy vystup tahu
     private static String formatMove(String who, int[] move, int res) {
         String coord = "" + (char)('A' + move[1]) + (move[0] + 1);
-        String resultStr = switch(res) {
-            case 1 -> "HIT a ship!";
-            case 2 -> "SUNK a ship!";
-            default -> "missed.";
-        };
-        return String.format("%-4s fired at %-3s -> %s", who, coord, resultStr);
+        String resultStr;
+        if (res == 1) {
+            resultStr = "ZASAH lode!";
+        } else if (res == 2) {
+            resultStr = "POTOPENA lod!";
+        } else if (res == 3) {
+            resultStr = "opakovana strelba."; // uzitecne pro debug
+        } else {
+            resultStr = "vedle.";
+        }
+        return String.format("%-4s strelba na %-3s -> %s", who, coord, resultStr);
     }
 
+    // vytvori instanci bota podle obtiznosti
     private static Bot createBot(int diff) {
-        return switch (diff) {
-            case 1 -> new Simple();
-            case 3 -> new Advanced();
-            case 4 -> new Expert();
-            default -> new Standard();
-        };
+        if (diff == 1) return new Simple();
+        if (diff == 3) return new Advanced();
+        return new Standard();
     }
 
+    // ukonci hru a zobrazi vysledky
     private static void endGame(boolean playerWon, long startTime) {
         clearConsole();
-        // Show final state
-        output.printGameFrame(logic.getBotBoard(), logic.getPlayerBoard(), "GAME OVER"); 
+        output.printGameFrame(logic.getBotBoard(), logic.getPlayerBoard(), "KONEC HRY"); 
         double duration = (System.currentTimeMillis() - startTime) / 1000.0;
         
-        System.out.println("\n" + (playerWon ? "VICTORY!" : "DEFEAT!"));
-        System.out.printf("Time: %.1fs\n", duration);
+        System.out.println("\n" + (playerWon ? "VITEZSTVI!" : "PROHRA!"));
+        System.out.printf("Cas: %.1fs\n", duration);
         
         if (playerWon) totalWins++; else totalLosses++;
         gamesPlayed++;
         promptEnterKey();
     }
     
+    // zmeni nastaveni obtiznosti
     private static void changeSettings() {
         clearConsole();
         output.printBotDifficulties(); 
-        System.out.println("Current Difficulty: " + BOT_NAMES[difficulty]);
-        System.out.print("Select Difficulty (1-4): ");
-        if (scanner.hasNextInt()) {
-            int val = scanner.nextInt();
-            if (val >= 1 && val <= 4) difficulty = val;
+        System.out.println("Aktualni obtiznost: " + BOT_NAMES[difficulty]);
+        System.out.print("Vyberte obtiznost (1-3): ");
+        try {
+            String line = scanner.nextLine();
+            int val = Integer.parseInt(line);
+            if (val >= 1 && val <= 3) {
+                difficulty = val;
+            }
+        } catch (NumberFormatException e) {
+            // ignorujeme chybny vstup
         }
-        scanner.nextLine(); 
     }
     
+    // zobrazi statistiky
     private static void showStats() {
         clearConsole();
-        System.out.println("--- STATISTICS ---");
-        System.out.println("Played: " + gamesPlayed + " | Wins: " + totalWins + " | Losses: " + totalLosses);
-        System.out.println("Enemy Ships Sunk: " + totalShipsSunk);
+        System.out.println("--- STATISTIKA ---");
+        System.out.println("Odehrano: " + gamesPlayed + " | Vyhry: " + totalWins + " | Prohry: " + totalLosses);
+        System.out.println("Potopene lode nepritele: " + totalShipsSunk);
         
         int shots = logic.getPlayerShots();
-        double acc = shots > 0 ? (double)logic.getPlayerHits() / shots * 100 : 0;
-        System.out.printf("Last Game Accuracy: %.1f%%\n", acc);
+        double acc = 0;
+        if (shots > 0) {
+            acc = (double)logic.getPlayerHits() / shots * 100;
+        }
+        System.out.printf("Presnost posledni hry: %.1f%%\n", acc);
         promptEnterKey();
     }
 
+    // pocka na stisk enteru
     private static void promptEnterKey() {
-        System.out.println("\nPress Enter...");
+        System.out.println("\nStisknete Enter...");
         scanner.nextLine();
     }
 
+    // vymaze konzoli
     public static void clearConsole() {
         System.out.print("\033[H\033[2J");
         System.out.flush();

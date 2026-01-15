@@ -3,6 +3,7 @@ import java.util.Stack;
 import java.util.ArrayList;
 
 public class Advanced extends Bot {
+    // chytry bot ktery dohledava lode
     private Stack<int[]> targets = new Stack<>(); 
     private int[] lastShot = null; 
 
@@ -14,7 +15,7 @@ public class Advanced extends Bot {
         if (lastShot != null) {
             int r = lastShot[0];
             int c = lastShot[1];
-            // Check if our last shot was a HIT
+            
             if (enemyBoard[r][c] == Utils.HIT) {
                 analyzeAndAddTargets(r, c, rows, cols, enemyBoard);
             }
@@ -23,7 +24,6 @@ public class Advanced extends Bot {
         int[] shotCoordinates;
         while (!targets.isEmpty()) {
             shotCoordinates = targets.pop();
-            // Ensure we don't shoot where we already shot (< 0)
             if (enemyBoard[shotCoordinates[0]][shotCoordinates[1]] >= 0) {
                 lastShot = shotCoordinates;
                 return shotCoordinates;
@@ -38,8 +38,8 @@ public class Advanced extends Bot {
         return shotCoordinates;
     }
 
+    // prida do seznamu cilu okolni policka
     private void analyzeAndAddTargets(int r, int c, int rows, int cols, int[][] board) {
-        // Utils.isValid now takes 2 args, size is static inside Utils
         boolean isVertical = (Utils.isValid(r - 1, c) && board[r - 1][c] == Utils.HIT) ||
                              (Utils.isValid(r + 1, c) && board[r + 1][c] == Utils.HIT);
 
@@ -72,17 +72,16 @@ public class Advanced extends Bot {
         for (int[] move : potentialMoves) targets.push(move);
     }
 
+    // pomocna metoda pro hledani konce lode
     private void addValidEnd(int r, int c, int dr, int dc, int[][] board, ArrayList<int[]> moves) {
         int currR = r + dr;
         int currC = c + dc;
 
-        // Skip over existing HITs
         while (Utils.isValid(currR, currC) && board[currR][currC] == Utils.HIT) {
             currR += dr;
             currC += dc;
         }
 
-        // If we land on a valid unshot spot (>=0), add it
         if (Utils.isValid(currR, currC) && board[currR][currC] >= 0) {
             moves.add(new int[]{currR, currC});
         }

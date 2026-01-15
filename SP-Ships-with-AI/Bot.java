@@ -1,9 +1,9 @@
 import java.util.Random;
 
 public abstract class Bot {
+    // abstraktni trida pro bota
     protected Random random = new Random();
     
-    // Abstract method: Every bot must implement its own shooting logic
-    // Returns int[] {row, col}
+    // metoda kterou musi potomci implementovat
     public abstract int[] shoot(int[][] enemyBoard);
 }
