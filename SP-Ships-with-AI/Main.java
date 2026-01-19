@@ -1,217 +1,168 @@
-import java.util.Scanner;
+import java.util.List;
+import java.util.Random;
 
-public class Main {
-    // hlavni trida, ktera spousti hru
-    private static final Logic logic = new Logic();
-    private static final Output output = new Output();
-    private static final Scanner scanner = new Scanner(System.in);
-    
-    // nastaveni hry a bota
-    private static Bot bot;
-    private static int difficulty = 2;
-    private static final String[] BOT_NAMES = {"Neznamy", "Lehky", "Stredni", "Tezky"};
-    
-    // statistiky
-    private static int totalWins = 0;
-    private static int totalLosses = 0;
-    private static int gamesPlayed = 0;
-    private static int totalShipsSunk = 0;
+public class Logic {
+    // trida spravujici herni stav a logiku
+    private int[][] playerBoard;
+    private int[][] botBoard;
+    // definice velikosti lodi
+    private final int[] SHIPS = {5, 4, 3, 3, 2}; 
+    private Random random = new Random();
 
-    // vstupni bod programu
-    public static void main(String[] args) {
-        boolean running = true;
-        while (running) {
-            clearConsole();
-            output.printMenu();
-            System.out.print("\nZvolte moznost: ");
-            String choice = scanner.nextLine().trim();
+    // promenne pro statistiku presnosti
+    private int playerShots = 0;
+    private int playerHits = 0;
 
-            if (choice.equals("1")) {
-                runGameLoop();
-            } else if (choice.equals("2")) {
-                changeSettings();
-            } else if (choice.equals("3")) {
-                showStats();
-            } else if (choice.equals("4")) {
-                running = false;
-                System.out.println("Na shledanou!");
+    // inicializuje herni plochy a nahodne rozmisti lode
+    public void initGame() {
+        playerBoard = new int[Utils.BOARD_SIZE][Utils.BOARD_SIZE];
+        botBoard = new int[Utils.BOARD_SIZE][Utils.BOARD_SIZE];
+        placeShipsRandomly(botBoard);
+        placeShipsRandomly(playerBoard); 
+        playerShots = 0; 
+        playerHits = 0; 
+    }
+
+    // zpracuje vystrel na konkretni souradnice
+    // vraci: 0=vedle, 1=zasah, 2=potopeno, 3=opakovana, -1=chyba
+    public int processShot(int[][] board, int r, int c, boolean isPlayerShooting) {
+        if (!Utils.isValid(r, c)) {
+            return -1; 
+        }
+        
+        if (isPlayerShooting) {
+            playerShots++;
+        }
+
+        int cell = board[r][c];
+
+        // kontrola zda jiz nebylo na toto misto strileno
+        if (cell == Utils.HIT || cell == Utils.MISS) {
+            return 3;
+        }
+
+        // pokud je na souradnicich lod
+        if (cell == Utils.SHIP) { 
+            board[r][c] = Utils.HIT;
+            if (isPlayerShooting) {
+                playerHits++;
+            }
+            
+            // kontrola zda tento zasah potopil celou lod
+            if (isShipSunk(board, r, c)) {
+                revealSurroundings(board, r, c);
+                return 2; 
+            }
+            return 1; 
+        } 
+        
+        // pokud na souradnicich nic neni
+        board[r][c] = Utils.MISS;
+        return 0; 
+    }
+
+    // overi zda jsou vsechny casti lode zasazeny
+    private boolean isShipSunk(int[][] board, int r, int c) {
+        List<int[]> parts = Utils.getShipParts(board, r, c);
+        for (int[] p : parts) {
+            // pokud najdeme cast lode ktera neni zasazena, lod neni potopena
+            if (board[p[0]][p[1]] == Utils.SHIP) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // automaticky odhali vodu okolo potopene lode
+    private void revealSurroundings(int[][] board, int r, int c) {
+        List<int[]> parts = Utils.getShipParts(board, r, c);
+        for (int[] part : parts) {
+            // pro kazdou cast lode projdeme okoli 3x3
+            for (int ro = -1; ro <= 1; ro++) {
+                for (int co = -1; co <= 1; co++) {
+                    int nr = part[0] + ro;
+                    int nc = part[1] + co;
+                    // oznacime jako 'miss' jen pokud je to voda a jsme na desce
+                    if (Utils.isValid(nr, nc) && board[nr][nc] == Utils.WATER) {
+                        board[nr][nc] = Utils.MISS;
+                    }
+                }
+            }
+        }
+    }
+
+    // pokusi se nahodne rozmistit vsechny lode na desku
+    private void placeShipsRandomly(int[][] board) {
+        for (int shipSize : SHIPS) {
+            boolean placed = false;
+            int attempts = 0;
+            // zkousime najit validni pozici (max 1000 pokusu)
+            while (!placed && attempts < 1000) {
+                int row = random.nextInt(Utils.BOARD_SIZE);
+                int col = random.nextInt(Utils.BOARD_SIZE);
+                boolean vertical = random.nextBoolean();
+
+                if (canPlaceShip(board, row, col, shipSize, vertical)) {
+                    placeShip(board, row, col, shipSize, vertical);
+                    placed = true;
+                }
+                attempts++;
+            }
+        }
+    }
+
+    // overi zda je mozne lod umistit bez kolize s jinymi
+    private boolean canPlaceShip(int[][] board, int row, int col, int size, boolean vertical) {
+        // kontrola zda lod nepresahuje hraci plochu
+        if (vertical) { 
+            if (row + size > Utils.BOARD_SIZE) return false; 
+        } else { 
+            if (col + size > Utils.BOARD_SIZE) return false; 
+        }
+
+        // definice oblasti pro kontrolu kolizi (vcetne okoli)
+        int rStart = Math.max(0, row - 1);
+        int rEnd = Math.min(Utils.BOARD_SIZE, vertical ? row + size + 1 : row + 2);
+        int cStart = Math.max(0, col - 1);
+        int cEnd = Math.min(Utils.BOARD_SIZE, vertical ? col + 2 : col + size + 1);
+
+        // kontrola zda v oblasti neni jina lod
+        for (int r = rStart; r < rEnd; r++) {
+            for (int c = cStart; c < cEnd; c++) {
+                if (board[r][c] != Utils.WATER) {
+                    return false; 
+                }
+            }
+        }
+        return true;
+    }
+
+    // fyzicky zapise lod do pole
+    private void placeShip(int[][] board, int row, int col, int size, boolean vertical) {
+        for (int i = 0; i < size; i++) {
+            if (vertical) {
+                board[row + i][col] = Utils.SHIP;
             } else {
-                System.out.println("Neplatna volba.");
-                promptEnterKey();
+                board[row][col + i] = Utils.SHIP;
             }
-        }
-        scanner.close();
-    }
-    
-    // ridici smycka jedne hry
-    private static void runGameLoop() {
-        logic.initGame();
-        bot = createBot(difficulty);
-        
-        long startTime = System.currentTimeMillis();
-        boolean gameRunning = true;
-        String turnLog = "Hra zacala. Cekam na rozkazy.";
-
-        while (gameRunning) {
-            clearConsole();
-            output.printGameFrame(logic.getBotBoard(), logic.getPlayerBoard(), turnLog);
-
-            // tah hrace
-            int[] pMove = getValidPlayerInput(); 
-            int pRes = logic.processShot(logic.getBotBoard(), pMove[0], pMove[1], true);
-            
-            if (pRes == 2) {
-                totalShipsSunk++;
-            }
-            
-            if (logic.checkWin(logic.getBotBoard())) {
-                endGame(true, startTime);
-                break;
-            }
-
-            // tah bota
-            int[] bMove = bot.shoot(logic.getPlayerBoard());
-            int bRes = logic.processShot(logic.getPlayerBoard(), bMove[0], bMove[1], false);
-            
-            String pStr = formatMove("Vy", pMove, pRes);
-            String bStr = formatMove("Bot", bMove, bRes);
-            turnLog = pStr + "\n" + bStr;
-
-            if (logic.checkWin(logic.getPlayerBoard())) {
-                endGame(false, startTime);
-                break;
-            }
-        }
-    }
-
-    // ziska od uzivatele souradnice a osetri chyby
-    private static int[] getValidPlayerInput() {
-        while (true) {
-            System.out.print("\nZadejte cil (napr. A1 nebo 1A): ");
-            String input = scanner.nextLine().toUpperCase().trim();
-            
-            try {
-                if (input.length() < 2) {
-                    throw new Exception();
-                }
-
-                int r, c;
-                char first = input.charAt(0);
-                char last = input.charAt(input.length() - 1);
-
-                // Logika pro rozpoznani formatu
-                if (Character.isLetter(first)) {
-                    // Format A1 (Pismeno na zacatku)
-                    c = first - 'A';
-                    // zbytek retezce musi byt cislo
-                    r = Integer.parseInt(input.substring(1)) - 1;
-                } 
-                else if (Character.isLetter(last)) {
-                    // Format 1A (Pismeno na konci)
-                    c = last - 'A';
-                    // zacatek retezce musi byt cislo
-                    r = Integer.parseInt(input.substring(0, input.length() - 1)) - 1;
-                } 
-                else {
-                    throw new Exception();
-                }
-                
-                if (!Utils.isValid(r, c)) {
-                    System.out.println("Mimo herni plochu.");
-                    continue;
-                }
-                
-                // ODSTRANENO: Kontrola jiz zasazeneho policka (povolena opakovana strelba)
-                
-                return new int[]{r, c};
-
-            } catch (NumberFormatException e) {
-                System.out.println("Spatny format cisla.");
-            } catch (Exception e) {
-                System.out.println("Neplatny vstup. Pouzijte napr. A5 nebo 5A.");
-            }
-        }
-    }
-
-    // naformatuje textovy vystup tahu
-    private static String formatMove(String who, int[] move, int res) {
-        String coord = "" + (char)('A' + move[1]) + (move[0] + 1);
-        String resultStr;
-        if (res == 1) {
-            resultStr = "ZASAH lode!";
-        } else if (res == 2) {
-            resultStr = "POTOPENA lod!";
-        } else if (res == 3) {
-            resultStr = "opakovana strelba."; // uzitecne pro debug
-        } else {
-            resultStr = "vedle.";
-        }
-        return String.format("%-4s strelba na %-3s -> %s", who, coord, resultStr);
-    }
-
-    // vytvori instanci bota podle obtiznosti
-    private static Bot createBot(int diff) {
-        if (diff == 1) return new Simple();
-        if (diff == 3) return new Advanced();
-        return new Standard();
-    }
-
-    // ukonci hru a zobrazi vysledky
-    private static void endGame(boolean playerWon, long startTime) {
-        clearConsole();
-        output.printGameFrame(logic.getBotBoard(), logic.getPlayerBoard(), "KONEC HRY"); 
-        double duration = (System.currentTimeMillis() - startTime) / 1000.0;
-        
-        System.out.println("\n" + (playerWon ? "VITEZSTVI!" : "PROHRA!"));
-        System.out.printf("Cas: %.1fs\n", duration);
-        
-        if (playerWon) totalWins++; else totalLosses++;
-        gamesPlayed++;
-        promptEnterKey();
-    }
-    
-    // zmeni nastaveni obtiznosti
-    private static void changeSettings() {
-        clearConsole();
-        output.printBotDifficulties(); 
-        System.out.println("Aktualni obtiznost: " + BOT_NAMES[difficulty]);
-        System.out.print("Vyberte obtiznost (1-3): ");
-        try {
-            String line = scanner.nextLine();
-            int val = Integer.parseInt(line);
-            if (val >= 1 && val <= 3) {
-                difficulty = val;
-            }
-        } catch (NumberFormatException e) {
-            // ignorujeme chybny vstup
         }
     }
     
-    // zobrazi statistiky
-    private static void showStats() {
-        clearConsole();
-        System.out.println("--- STATISTIKA ---");
-        System.out.println("Odehrano: " + gamesPlayed + " | Vyhry: " + totalWins + " | Prohry: " + totalLosses);
-        System.out.println("Potopene lode nepritele: " + totalShipsSunk);
-        
-        int shots = logic.getPlayerShots();
-        double acc = 0;
-        if (shots > 0) {
-            acc = (double)logic.getPlayerHits() / shots * 100;
+    // zkontroluje zda na desce zbyvaji nejake lode
+    public boolean checkWin(int[][] board) {
+        for (int[] row : board) {
+            for (int cell : row) {
+                if (cell == Utils.SHIP) {
+                    return false;
+                }
+            }
         }
-        System.out.printf("Presnost posledni hry: %.1f%%\n", acc);
-        promptEnterKey();
+        return true;
     }
 
-    // pocka na stisk enteru
-    private static void promptEnterKey() {
-        System.out.println("\nStisknete Enter...");
-        scanner.nextLine();
-    }
-
-    // vymaze konzoli
-    public static void clearConsole() {
-        System.out.print("\033[H\033[2J");
-        System.out.flush();
-    }
+    // pristupove metody pro zobrazeni stavu
+    public int getPlayerShots() { return playerShots; }
+    public int getPlayerHits() { return playerHits; }
+    public int[][] getPlayerBoard() { return playerBoard; }
+    public int[][] getBotBoard() { return botBoard; }
 }

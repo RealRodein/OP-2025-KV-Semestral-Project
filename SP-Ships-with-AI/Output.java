@@ -1,21 +1,21 @@
 public class Output {
-    // trida pro vypis do konzole
+    // trida starajici se o vypis hry do konzole
     private static final String SHIP_HIT = "██";
     private static final String WATER_MISS = "░░";
     private static final String UNREVEALED = "  "; 
     private static final String SHIP_SAFE = "[]"; 
 
-    // barvy textu
+    // definice barev a formatovani
     private static final String BOLD = "\033[1m";
     private static final String RESET = "\033[0m";
 
-    // casti ramecku
+    // znaky pro vykresleni ramecku
     private static final String HORIZ = "══"; 
     private static final String VERT = "║";
     private static final String TL = "╔", TR = "╗", BL = "╚", BR = "╝"; 
     private static final String T_DOWN = "╦", T_UP = "╩";
 
-    // vypise hlavni menu
+    // vypise hlavni menu s ascii artem
     public void printMenu() {
         System.out.println("by KV");
         System.out.println("""
@@ -40,24 +40,27 @@ public class Output {
         System.out.println(BL + "════════════════════════════" + BR);
     }
 
-    // vykresli herni plochu
+    // vykresli aktualni stav obou hernich ploch
     public void printGameFrame(int[][] botBoard, int[][] playerBoard, String logMessage) {
         int size = botBoard.length;
 
         System.out.println(); 
 
+        // vypis hlavicky s pismeny
         System.out.print("    "); 
         for (int i = 0; i < size; i++) System.out.print(" " + (char)('A' + i));
         System.out.print(" "); 
         for (int i = 0; i < size; i++) System.out.print(" " + (char)('A' + i));
         System.out.println();
 
+        // horni okraj
         System.out.print("   " + TL);
         for (int i = 0; i < size; i++) System.out.print(HORIZ);
         System.out.print(T_DOWN);
         for (int i = 0; i < size; i++) System.out.print(HORIZ);
         System.out.println(TR);
 
+        // radky s hernimi poli
         for (int i = 0; i < size; i++) {
             System.out.printf("%2d %s", i + 1, VERT);
             for (int cell : botBoard[i]) System.out.print(getSymbol(cell, false));
@@ -66,23 +69,26 @@ public class Output {
             System.out.printf("%s %-2d\n", VERT, i + 1);
         }
 
+        // spodni okraj
         System.out.print("   " + BL);
         for (int i = 0; i < size; i++) System.out.print(HORIZ);
         System.out.print(T_UP);
         for (int i = 0; i < size; i++) System.out.print(HORIZ);
         System.out.println(BR);
 
+        // popisky pod deskou
         System.out.print("    "); 
         System.out.print("         " + BOLD + "BOT" + RESET + "        ");
         System.out.print(" ");
         System.out.println("       " + BOLD + "HRAC" + RESET);
         
+        // vypis zpravy o prubehu hry
         if (logMessage != null && !logMessage.isEmpty()) {
             System.out.println("\n" + logMessage);
         }
     }
 
-    // vrati symbol pro vykresleni
+    // preklada ciselnou hodnotu policka na graficky symbol
     private String getSymbol(int value, boolean isPlayer) {
         if (value == -1) return SHIP_HIT;
         if (value == -2) return WATER_MISS;
@@ -90,7 +96,7 @@ public class Output {
         return UNREVEALED;
     }
     
-    // zobrazi urovne obtiznosti
+    // vypise informace o dostupnych obtiznostech
     public void printBotDifficulties() {
         System.out.println("\n--- OBTIZNOST BOTA ---");
         System.out.println("1. Lehky   : Nahodna strelba.");

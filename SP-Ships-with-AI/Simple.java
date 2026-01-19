@@ -1,5 +1,6 @@
 public class Simple extends Bot {
-    // nejjednodussi bot strilejici nahodne
+    // zakladni bot ktery strili zcela nahodne
+    // ignoruje stav hraci plochy
     @Override
     public int[] shoot(int[][] enemyBoard) {
         int rows = enemyBoard.length;
