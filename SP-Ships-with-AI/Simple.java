@@ -1,10 +1,11 @@
+package kin.op.kupec.vojtech;
+
 public class Simple extends Bot {
     // zakladni bot ktery strili zcela nahodne
     // ignoruje stav hraci plochy
     @Override
-    public int[] shoot(int[][] enemyBoard) {
-        int rows = enemyBoard.length;
-        int cols = enemyBoard[0].length;
-        return new int[]{random.nextInt(rows), random.nextInt(cols)};
+    public Coordinates shoot(Board enemyBoard) {
+        int size = enemyBoard.getSize();
+        return new Coordinates(random.nextInt(size), random.nextInt(size));
     }
 }

@@ -1,3 +1,5 @@
+package kin.op.kupec.vojtech;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,25 +17,29 @@ public class Utils {
         return r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE;
     }
 
+    public static boolean isValid(Coordinates coords) {
+        return isValid(coords.x, coords.y);
+    }
+
     // vrati seznam souradnic vsech casti lode na dane pozici
     // pouziva se pro kontrolu potopeni
-    public static List<int[]> getShipParts(int[][] board, int startR, int startC) {
-        List<int[]> parts = new ArrayList<>();
+    public static List<Coordinates> getShipParts(Board board, int startR, int startC) {
+        List<Coordinates> parts = new ArrayList<>();
         boolean[][] visited = new boolean[BOARD_SIZE][BOARD_SIZE];
         collectParts(board, startR, startC, parts, visited);
         return parts;
     }
 
     // rekurzivni vyhledani spojenych casti lode (flood fill)
-    private static void collectParts(int[][] board, int r, int c, List<int[]> parts, boolean[][] visited) {
+    private static void collectParts(Board board, int r, int c, List<Coordinates> parts, boolean[][] visited) {
         if (!isValid(r, c) || visited[r][c]) return;
 
-        int cell = board[r][c];
+        int cell = board.get(r, c);
         // zastavime se pokud narazime na vodu nebo strelu vedle
         if (cell == WATER || cell == MISS) return;
 
         visited[r][c] = true;
-        parts.add(new int[]{r, c});
+        parts.add(new Coordinates(r, c));
 
         // prohledani vsech ctyr smeru
         collectParts(board, r + 1, c, parts, visited);

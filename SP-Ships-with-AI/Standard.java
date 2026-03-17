@@ -1,18 +1,19 @@
+package kin.op.kupec.vojtech;
+
 public class Standard extends Bot {
-    // bot stredni urovne, ktery si pamatuje kam strilil
+    // bot stredni urovne, ktery si pamatuje kam strilel
     // nestrili dvakrat na stejne misto
     @Override
-    public int[] shoot(int[][] enemyBoard) {
-        int rows = enemyBoard.length;
-        int cols = enemyBoard[0].length;
+    public Coordinates shoot(Board enemyBoard) {
+        int size = enemyBoard.getSize();
         int r, c;
-        
+
         // generuje souradnice dokud nenajde volne policko
         do {
-            r = random.nextInt(rows);
-            c = random.nextInt(cols);
-        } while (enemyBoard[r][c] < 0); 
+            r = random.nextInt(size);
+            c = random.nextInt(size);
+        } while (enemyBoard.get(r, c) < 0);
 
-        return new int[]{r, c};
+        return new Coordinates(r, c);
     }
 }
